@@ -57,10 +57,10 @@ def de_irp(data, init_value):
     :param init_value:
     :return:
     """
-    seq_length = data.size
-    res = np.zeros((seq_length, 1))
+    seq_length = len(data[0])
+    res = np.zeros(seq_length)
     res[0] = init_value
     for i in range(1, seq_length):
-        res[i] = init_value * (np.exp(data[i]))
+        res[i] = init_value * (np.exp(data[0][i]))
 
     return res

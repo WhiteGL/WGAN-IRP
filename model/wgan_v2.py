@@ -83,11 +83,11 @@ class WGAN_GP_v2(object):
         self.sample_dir = args.sample_dir
         self.log_dir = args.log_dir
         self.gpu_mode = args.gpu_mode
-        self.model_name = args.gan_type
+        self.model_name = args.model_name
         self.input_size = args.input_size
         self.data_dir = args.data_dir
         self.col_name = args.col_name
-        self.z_dim = 62
+        self.z_dim = 100
         self.lambda_ = 10
         self.n_critic = 5               # the number of iterations of the critic per generator iteration
 
@@ -205,7 +205,7 @@ class WGAN_GP_v2(object):
                                  self.epoch)
         utils.loss_plot(self.train_hist, os.path.join(self.save_dir, self.model_name), self.model_name)
 
-    def visualize_results(self, epoch, init_value=100, fix=True):
+    def visualize_results(self, epoch, fix=True):
         self.G.eval()
 
         if not os.path.exists(self.result_dir + '/' + self.model_name):
@@ -229,7 +229,7 @@ class WGAN_GP_v2(object):
         else:
             samples = samples.data.numpy().transpose(0, 2, 3, 1)
         # change the value range (-1, 1)->(0, 1)
-        # samples = (samples + 1) / 2
+        samples = (samples + 1) / 2
         utils.save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
                           self.result_dir + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch + '.png')
 
@@ -251,30 +251,29 @@ class WGAN_GP_v2(object):
         self.G.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_G.pkl')))
         self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_D.pkl')))
 
-    def generate(self, sample_num, init_value=100, fix=True):
+        print('load model successful')
+
+    def generate(self, init_value=100):
         self.G.eval()
-        self.load()
+
         if not os.path.exists(self.sample_dir + '/' + self.model_name):
             os.makedirs(self.sample_dir + '/' + self.model_name)
-        tot_num_samples = min(self.sample_num, self.batch_size)
+        tot_num_samples = max(self.sample_num, self.batch_size)
+        tot_num_samples = 10
 
+        sample_z = torch.rand((tot_num_samples, self.z_dim)).cuda()
         'choose right noise data and generate the samples'
-        if fix:
-            """ fixed noise """
-            samples = self.G(self.sample_z_)
-        else:
-            """ random noise """
-            sample_z_ = torch.rand((self.batch_size, self.z_dim))
-            if self.gpu_mode:
-                sample_z_ = sample_z_.cuda()
-            samples = self.G(sample_z_)
+        """ fixed noise """
+        samples = self.G(sample_z)
 
         # （b, c, h, w)->(b, h, w, c)
         if self.gpu_mode:
             samples = samples.cpu().data.numpy().transpose(0, 2, 3, 1)
         else:
             samples = samples.data.numpy().transpose(0, 2, 3, 1)
-        "得到的数值需要进行去归一化"
-        samples = self.data_loader.dataset.denormalize(samples)
+        samples = samples[:, :, :, 0]
+        res = []
         for item in samples:
             item = de_irp(item, init_value)
+            res.append(item)
+        np.savetxt(self.model_name + 'samples.csv', res, delimiter=",")
