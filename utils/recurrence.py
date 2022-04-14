@@ -61,6 +61,6 @@ def de_irp(data, init_value):
     res = np.zeros(seq_length)
     res[0] = init_value
     for i in range(1, seq_length):
-        res[i] = init_value * (np.exp(data[0][i]))
+        res[i] = init_value / (np.exp(data[0][i]))
 
     return res

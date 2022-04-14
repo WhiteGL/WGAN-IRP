@@ -47,7 +47,7 @@ class TSDataset(Dataset):
         """Normalize input in [0,1] range, saving statics for denormalization"""
         self.max = x.max()
         self.min = x.min()
-        return (x - self.min) / (self.max - self.min) + 1e-5
+        return (x - self.min) / (self.max - self.min) + 1e-7
 
     def denormalize(self, x):
         """Revert [0,1] normalization"""

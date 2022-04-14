@@ -76,7 +76,7 @@ class WGAN_GP_v2(object):
     def __init__(self, args):
         # parameters
         self.epoch = args.epoch
-        self.sample_num = 100
+        self.sample_num = 200
         self.batch_size = args.batch_size
         self.save_dir = args.save_dir
         self.result_dir = args.result_dir
@@ -192,8 +192,9 @@ class WGAN_GP_v2(object):
                           ((epoch + 1), (iter + 1), self.data_loader.dataset.__len__() // self.batch_size, D_loss.item(), G_loss.item()))
 
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
-            with torch.no_grad():
-                self.visualize_results((epoch+1))
+            if (epoch+1) % 50 == 0:
+                with torch.no_grad():
+                    self.visualize_results((epoch+1))
 
         self.train_hist['total_time'].append(time.time() - start_time)
         print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
@@ -201,8 +202,8 @@ class WGAN_GP_v2(object):
         print("Training finish!... save training results")
 
         self.save()
-        utils.generate_animation(self.result_dir + '/' + self.model_name + '/' + self.model_name,
-                                 self.epoch)
+        """utils.generate_animation(self.result_dir + '/' + self.model_name + '/' + self.model_name,
+                                 self.epoch)"""
         utils.loss_plot(self.train_hist, os.path.join(self.save_dir, self.model_name), self.model_name)
 
     def visualize_results(self, epoch, fix=True):
@@ -259,7 +260,6 @@ class WGAN_GP_v2(object):
         if not os.path.exists(self.sample_dir + '/' + self.model_name):
             os.makedirs(self.sample_dir + '/' + self.model_name)
         tot_num_samples = max(self.sample_num, self.batch_size)
-        tot_num_samples = 10
 
         sample_z = torch.rand((tot_num_samples, self.z_dim)).cuda()
         'choose right noise data and generate the samples'
