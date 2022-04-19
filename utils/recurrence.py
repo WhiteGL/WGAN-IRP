@@ -57,10 +57,18 @@ def de_irp(data, init_value):
     :param init_value:
     :return:
     """
-    seq_length = len(data[0])
+    seq_length = data.shape[0]
     res = np.zeros(seq_length)
     res[0] = init_value
     for i in range(1, seq_length):
-        res[i] = init_value / (np.exp(data[0][i]))
+        res[i] = init_value / (np.exp(data[i]))
 
+    return res
+
+
+def de_norm(min_value, max_value, x):
+    res = np.zeros((x.shape[0]))
+    min_hat, max_hat = min(x), max(x)
+    for i in range(x.shape[0]):
+        res[i] = min_value + (max_value - min_value) / (max_hat - min_hat) * (x[i] - min_hat)
     return res
