@@ -7,6 +7,7 @@ from utils.data_loader import get_data_loader
 from utils import utils_v2 as utils
 from utils.recurrence import de_irp, de_norm
 
+
 class generator(nn.Module):
     # Network Architecture is exactly same as in infoGAN (https://arxiv.org/abs/1606.03657)
     # Architecture : FC1024_BR-FC7x7x128_BR-(64)4dc2s_BR-(1)4dc2s_S
@@ -71,6 +72,7 @@ class discriminator(nn.Module):
         x = self.fc(x)
 
         return x
+
 
 class WGAN_GP_v2(object):
     def __init__(self, args):
@@ -190,7 +192,8 @@ class WGAN_GP_v2(object):
 
                 if ((iter + 1) % 100) == 0:
                     print("Epoch: [%2d] [%4d/%4d] D_loss: %.8f, G_loss: %.8f" %
-                          ((epoch + 1), (iter + 1), self.data_loader.dataset.__len__() // self.batch_size, D_loss.item(), G_loss.item()))
+                          ((epoch + 1), (iter + 1), self.data_loader.dataset.__len__() // self.batch_size, D_loss.item()
+                           , G_loss.item()))
 
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
             if (epoch+1) % 50 == 0:
@@ -233,7 +236,8 @@ class WGAN_GP_v2(object):
         # change the value range (-1, 1)->(0, 1)
         samples = (samples + 1) / 2
         utils.save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
-                          self.result_dir + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch + '.png')
+                          self.result_dir + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch
+                          + '.png')
 
     def save(self):
         save_dir = os.path.join(self.save_dir, self.model_name)
@@ -276,7 +280,8 @@ class WGAN_GP_v2(object):
         res = []
         for item in samples:
             data = item[0]
-            item = de_norm(self.min_value, self.max_value, data)
-            item = de_irp(item, init_value)
+            # item = de_norm(self.min_value, self.max_value, data)
+            # -------------------------------------------------------
+            item = de_irp(data, init_value)
             res.append(item)
         np.savetxt(self.model_name + 'samples.csv', res, delimiter=",")

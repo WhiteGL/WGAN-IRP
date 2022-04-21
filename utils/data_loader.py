@@ -31,17 +31,24 @@ class TSDataset(Dataset):
             value = df.Value
             arr = np.asarray([value[time_window * i:time_window * i + time_window] for i in range(n // time_window)],
                              dtype=np.float32)
-        # minmax归一化，将所有数据映射至(0,1)区间，加上一个极小值避免0值无法运算问题
-        # data = self.normalize(arr) if normalize else arr
-        length = arr.shape[0]
+        # # minmax归一化，将所有数据映射至(0,1)区间，加上一个极小值避免0值无法运算问题
+        # # data = self.normalize(arr) if normalize else arr
+        # length = arr.shape[0]
+        # self.data = torch.empty(length, 1, time_window, time_window)
+        # # 计算IRP值，该值域为(-∞，+∞)，记录准确值域
+        # for i in range(length):
+        #     matrix = torch.from_numpy(intertemporal_recurrence_matrix(arr[i]))
+        #     self.data[i] = matrix.view((1, time_window, time_window))
+        # self.min = self.data.min()
+        # self.max = self.data.max()
+        # # 再一次线性映射，将值域限制在(-1,1)内
+        #————————————————————————————————
+        data = self.normalize(arr) if normalize else arr
+        length = data.shape[0]
         self.data = torch.empty(length, 1, time_window, time_window)
-        # 计算IRP值，该值域为(-∞，+∞)，记录准确值域
         for i in range(length):
-            matrix = torch.from_numpy(intertemporal_recurrence_matrix(arr[i]))
-            self.data[i] = matrix.view((1, time_window, time_window))
-        self.min = self.data.min()
-        self.max = self.data.max()
-        # 再一次线性映射，将值域限制在(-1,1)内
+            matrix = torch.from_numpy(intertemporal_recurrence_matrix(data[i]))
+            self.data[i] = matrix.view(1, time_window, time_window)
 
     def __len__(self):
         return len(self.data)
