@@ -78,7 +78,7 @@ class WGAN_GP_v2(object):
     def __init__(self, args):
         # parameters
         self.epoch = args.epoch
-        self.sample_num = 200
+        self.sample_num = 2000
         self.batch_size = args.batch_size
         self.save_dir = args.save_dir
         self.result_dir = args.result_dir

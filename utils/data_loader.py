@@ -18,19 +18,24 @@ class TSDataset(Dataset):
             is_seq: True连续取序列或False间隔取序列
             normalize (bool): whether to normalize the data in [-1,1]
         """
-        df = pd.read_csv(csv_file)
+
         # 获取指定列的数据
-        df = df.filter([value_col], axis=1)
-        df.rename(columns={value_col: 'Value'}, inplace=True)
-        # 连续取序列或间隔取序列
-        if is_seq:
-            value = df.Value
-            arr = np.asarray([value[i:i + time_window] for i in range(len(df) - time_window)], dtype=np.float32)
+        if value_col == 'None':
+            df = pd.read_csv(csv_file, header=None)
+            arr = np.asarray(df, dtype=np.float32)
         else:
-            n = (len(df) // time_window) * time_window
-            value = df.Value
-            arr = np.asarray([value[time_window * i:time_window * i + time_window] for i in range(n // time_window)],
-                             dtype=np.float32)
+            df = pd.read_csv(csv_file)
+            df = df.filter([value_col], axis=1)
+            df.rename(columns={value_col: 'Value'}, inplace=True)
+            # 连续取序列或间隔取序列
+            if is_seq:
+                value = df.Value
+                arr = np.asarray([value[i:i + time_window] for i in range(len(df) - time_window)], dtype=np.float32)
+            else:
+                n = (len(df) // time_window) * time_window
+                value = df.Value
+                arr = np.asarray([value[time_window * i:time_window * i + time_window] for i in range(n // time_window)]
+                                 , dtype=np.float32)
         # # minmax归一化，将所有数据映射至(0,1)区间，加上一个极小值避免0值无法运算问题
         # # data = self.normalize(arr) if normalize else arr
         # length = arr.shape[0]
