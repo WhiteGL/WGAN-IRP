@@ -55,6 +55,10 @@ class TSDataset(Dataset):
             matrix = torch.from_numpy(intertemporal_recurrence_matrix(data[i]))
             self.data[i] = matrix.view(1, time_window, time_window)
 
+        # do a tanh as normalization
+        self.data = torch.tanh(self.data)
+
+
     def __len__(self):
         return len(self.data)
 

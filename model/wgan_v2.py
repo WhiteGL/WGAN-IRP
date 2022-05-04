@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.autograd import grad
 from utils.data_loader import get_data_loader
 from utils import utils_v2 as utils
-from utils.recurrence import de_irp, de_norm
+from utils.recurrence import de_irp, de_tanh
 
 
 class generator(nn.Module):
@@ -20,15 +20,15 @@ class generator(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(self.input_dim, 1024),
             nn.BatchNorm1d(1024),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Linear(1024, 128 * (self.input_size // 4) * (self.input_size // 4)),
             nn.BatchNorm1d(128 * (self.input_size // 4) * (self.input_size // 4)),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.deconv = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 4, 2, 1),
             nn.BatchNorm2d(64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.ConvTranspose2d(64, self.output_dim, 4, 2, 1),
             nn.Tanh(),
         )
@@ -40,6 +40,7 @@ class generator(nn.Module):
         x = self.deconv(x)
 
         return x
+
 
 class discriminator(nn.Module):
     # Network Architecture is exactly same as in infoGAN (https://arxiv.org/abs/1606.03657)
@@ -270,6 +271,7 @@ class WGAN_GP_v2(object):
         'choose right noise data and generate the samples'
         """ fixed noise """
         samples = self.G(sample_z)
+        samples = de_tanh(samples)
 
         # （b, c, h, w)->(b, h, w, c)
         if self.gpu_mode:
@@ -280,7 +282,7 @@ class WGAN_GP_v2(object):
         res = []
         for item in samples:
             data = item[0]
-            # item = de_norm(self.min_value, self.max_value, data)
+            # data = de_tanh(data)
             # -------------------------------------------------------
             item = de_irp(data, init_value)
             res.append(item)

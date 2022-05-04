@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def intertemporal_recurrence_matrix(data):
@@ -72,3 +73,9 @@ def de_norm(min_value, max_value, x):
     for i in range(x.shape[0]):
         res[i] = min_value + (max_value - min_value) / (max_hat - min_hat) * (x[i] - min_hat)
     return res
+
+
+def de_tanh(x):
+    y = 0.5 * torch.log((1 + x) / (1 - x) + 1e-7)
+
+    return y
