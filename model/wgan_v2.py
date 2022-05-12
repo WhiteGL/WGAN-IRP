@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.autograd import grad
 from utils.data_loader import get_data_loader
 from utils import utils_v2 as utils
-from utils.recurrence import de_irp, de_tanh
+from utils.recurrence import de_irp, de_tanh, de_irpv2
 
 
 class generator(nn.Module):
@@ -20,15 +20,15 @@ class generator(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(self.input_dim, 1024),
             nn.BatchNorm1d(1024),
-            nn.LeakyReLU(0.2),
+            nn.ReLU(),
             nn.Linear(1024, 128 * (self.input_size // 4) * (self.input_size // 4)),
             nn.BatchNorm1d(128 * (self.input_size // 4) * (self.input_size // 4)),
-            nn.LeakyReLU(0.2),
+            nn.ReLU(),
         )
         self.deconv = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 4, 2, 1),
             nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.2),
+            nn.ReLU(),
             nn.ConvTranspose2d(64, self.output_dim, 4, 2, 1),
             nn.Tanh(),
         )
@@ -63,7 +63,6 @@ class discriminator(nn.Module):
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(0.2),
             nn.Linear(1024, self.output_dim),
-            # nn.Sigmoid(),
         )
         utils.initialize_weights(self)
 
@@ -91,7 +90,7 @@ class WGAN_GP_v2(object):
         self.data_dir = args.data_dir
         self.col_name = args.col_name
         self.z_dim = 100
-        self.lambda_ = 10
+        self.lambda_ = 0.1
         self.n_critic = 5               # the number of iterations of the critic per generator iteration
 
         # load dataset
@@ -104,6 +103,7 @@ class WGAN_GP_v2(object):
         self.D = discriminator(input_dim=data.shape[0], output_dim=1, input_size=self.input_size)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
         self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
+
 
         if self.gpu_mode:
             self.G.cuda()
@@ -125,18 +125,22 @@ class WGAN_GP_v2(object):
         self.train_hist['G_loss'] = []
         self.train_hist['per_epoch_time'] = []
         self.train_hist['total_time'] = []
+        # 设置一个变化的学习率
+        d_exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.D_optimizer, step_size=100, gamma=0.95)
+        g_exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.G_optimizer, step_size=100, gamma=0.95)
 
         self.y_real_, self.y_fake_ = torch.ones(self.batch_size, 1), torch.zeros(self.batch_size, 1)
         if self.gpu_mode:
             self.y_real_, self.y_fake_ = self.y_real_.cuda(), self.y_fake_.cuda()
 
-        self.D.train()
+
         print('training start!!')
         start_time = time.time()
         for epoch in range(self.epoch):
-            self.G.train()
+
             epoch_start_time = time.time()
             for iter, x_ in enumerate(self.data_loader):
+
                 if iter == self.data_loader.dataset.__len__() // self.batch_size:
                     break
 
@@ -145,7 +149,8 @@ class WGAN_GP_v2(object):
                     x_, z_ = x_.cuda(), z_.cuda()
 
                 # update D network
-                self.D_optimizer.zero_grad()
+                self.D.train()
+                self.G.train()
 
                 D_real = self.D(x_)
                 D_real_loss = -torch.mean(D_real)
@@ -165,7 +170,7 @@ class WGAN_GP_v2(object):
                 pred_hat = self.D(x_hat)
                 if self.gpu_mode:
                     gradients = grad(outputs=pred_hat, inputs=x_hat, grad_outputs=torch.ones(pred_hat.size()).cuda(),
-                                 create_graph=True, retain_graph=True, only_inputs=True)[0]
+                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
                 else:
                     gradients = grad(outputs=pred_hat, inputs=x_hat, grad_outputs=torch.ones(pred_hat.size()),
                                      create_graph=True, retain_graph=True, only_inputs=True)[0]
@@ -174,20 +179,25 @@ class WGAN_GP_v2(object):
 
                 D_loss = D_real_loss + D_fake_loss + gradient_penalty
 
+                self.G_optimizer.zero_grad()
+                self.D_optimizer.zero_grad()
                 D_loss.backward()
                 self.D_optimizer.step()
+                d_exp_lr_scheduler.step()
 
                 if ((iter+1) % self.n_critic) == 0:
                     # update G network
-                    self.G_optimizer.zero_grad()
 
                     G_ = self.G(z_)
                     D_fake = self.D(G_)
                     G_loss = -torch.mean(D_fake)
+                    self.D_optimizer.zero_grad()
+                    self.G_optimizer.zero_grad()
                     self.train_hist['G_loss'].append(G_loss.item())
 
                     G_loss.backward()
                     self.G_optimizer.step()
+                    g_exp_lr_scheduler.step()
 
                     self.train_hist['D_loss'].append(D_loss.item())
 
@@ -195,6 +205,8 @@ class WGAN_GP_v2(object):
                     print("Epoch: [%2d] [%4d/%4d] D_loss: %.8f, G_loss: %.8f" %
                           ((epoch + 1), (iter + 1), self.data_loader.dataset.__len__() // self.batch_size, D_loss.item()
                            , G_loss.item()))
+
+
 
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
             if (epoch+1) % 50 == 0:
@@ -260,7 +272,7 @@ class WGAN_GP_v2(object):
 
         print('load model successful')
 
-    def generate(self, init_value=100):
+    def generate(self):
         self.G.eval()
 
         if not os.path.exists(self.sample_dir + '/' + self.model_name):
@@ -281,9 +293,9 @@ class WGAN_GP_v2(object):
         samples = samples[:, :, :, 0]
         res = []
         for item in samples:
-            data = item[0]
+            data = item
             # data = de_tanh(data)
             # -------------------------------------------------------
-            item = de_irp(data, init_value)
+            # item = de_irpv2(data, init_value)
             res.append(item)
-        np.savetxt(self.model_name + 'samples.csv', res, delimiter=",")
+        np.save(self.model_name + 'samples.npy', res)

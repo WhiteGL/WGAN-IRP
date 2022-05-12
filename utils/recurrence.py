@@ -79,3 +79,19 @@ def de_tanh(x):
     y = 0.5 * torch.log((1 + x) / (1 - x) + 1e-7)
 
     return y
+
+
+def de_irpv2(data, init_value):
+    """
+    使用矩阵的每一行进行逆rp化，后取均值
+    :param data: rp值矩阵
+    :param init_value: 初始值
+    :return:
+    """
+    seq_length = data.shape[0]
+    res_matrix = np.zeros((seq_length, seq_length))
+    for i in range(seq_length):
+        res_matrix[i][i] = init_value * np.exp(data[i][0])
+        for j in range(seq_length):
+            res_matrix[i][j] = res_matrix[i][i] / np.exp(data[i][j])
+    return res_matrix.mean(axis=0)
