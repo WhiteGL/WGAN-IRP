@@ -26,7 +26,7 @@ class TSDataset(Dataset):
         else:
             df = pd.read_csv(csv_file)
             df = df.filter([value_col], axis=1)
-            df.rename(columns={value_col: 'Value'}, inplace=True)
+            df.rename(columns={value_col: "Value"}, inplace=True)
             # 连续取序列或间隔取序列
             if is_seq:
                 value = df.Value
@@ -48,16 +48,17 @@ class TSDataset(Dataset):
         # self.max = self.data.max()
         # # 再一次线性映射，将值域限制在(-1,1)内
         #————————————————————————————————
-        data = self.normalize(arr) if normalize else arr
-        length = data.shape[0]
+        # data = self.normalize(arr) if normalize else arr
+        length = arr.shape[0]
         self.data = torch.empty(length, 1, time_window, time_window)
         for i in range(length):
-            matrix = torch.from_numpy(intertemporal_recurrence_matrix(data[i]))
+            matrix = torch.from_numpy(intertemporal_recurrence_matrix(arr[i]))
+            # matrix = self.normalize(matrix)
             self.data[i] = matrix.view(1, time_window, time_window)
+        self.data = self.data[:50]
 
         # do a tanh as normalization
-        self.data = torch.tanh(self.data)
-
+        # self.data = torch.tanh(self.data)
 
     def __len__(self):
         return len(self.data)

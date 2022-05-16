@@ -5,7 +5,6 @@ import torch.optim as optim
 from torch.autograd import grad
 from utils.data_loader import get_data_loader
 from utils import utils_v2 as utils
-from utils.recurrence import de_irp, de_tanh, de_irpv2
 
 
 class generator(nn.Module):
@@ -90,12 +89,12 @@ class WGAN_GP_v2(object):
         self.data_dir = args.data_dir
         self.col_name = args.col_name
         self.z_dim = 100
-        self.lambda_ = 0.1
+        self.lambda_ = 10
         self.n_critic = 5               # the number of iterations of the critic per generator iteration
 
         # load dataset
         self.data_loader = get_data_loader(self.data_dir, self.col_name, self.input_size, self.batch_size)
-        self.max_value, self.min_value = self.data_loader.dataset.max, self.data_loader.dataset.min
+        # self.max_value, self.min_value = self.data_loader.dataset.max, self.data_loader.dataset.min
         data = self.data_loader.__iter__().__next__()[0]
 
         # networks init
@@ -103,7 +102,6 @@ class WGAN_GP_v2(object):
         self.D = discriminator(input_dim=data.shape[0], output_dim=1, input_size=self.input_size)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
         self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
-
 
         if self.gpu_mode:
             self.G.cuda()
@@ -126,18 +124,18 @@ class WGAN_GP_v2(object):
         self.train_hist['per_epoch_time'] = []
         self.train_hist['total_time'] = []
         # 设置一个变化的学习率
-        d_exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.D_optimizer, step_size=100, gamma=0.95)
-        g_exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.G_optimizer, step_size=100, gamma=0.95)
+        #d_exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.D_optimizer, step_size=100, gamma=0.95)
+        #g_exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.G_optimizer, step_size=100, gamma=0.95)
 
         self.y_real_, self.y_fake_ = torch.ones(self.batch_size, 1), torch.zeros(self.batch_size, 1)
         if self.gpu_mode:
             self.y_real_, self.y_fake_ = self.y_real_.cuda(), self.y_fake_.cuda()
 
-
+        self.D.train()
         print('training start!!')
         start_time = time.time()
         for epoch in range(self.epoch):
-
+            self.G.train()
             epoch_start_time = time.time()
             for iter, x_ in enumerate(self.data_loader):
 
@@ -149,8 +147,7 @@ class WGAN_GP_v2(object):
                     x_, z_ = x_.cuda(), z_.cuda()
 
                 # update D network
-                self.D.train()
-                self.G.train()
+                self.D_optimizer.zero_grad()
 
                 D_real = self.D(x_)
                 D_real_loss = -torch.mean(D_real)
@@ -179,25 +176,23 @@ class WGAN_GP_v2(object):
 
                 D_loss = D_real_loss + D_fake_loss + gradient_penalty
 
-                self.G_optimizer.zero_grad()
-                self.D_optimizer.zero_grad()
                 D_loss.backward()
                 self.D_optimizer.step()
-                d_exp_lr_scheduler.step()
+                # d_exp_lr_scheduler.step()
 
                 if ((iter+1) % self.n_critic) == 0:
                     # update G network
+                    self.G_optimizer.zero_grad()
 
                     G_ = self.G(z_)
                     D_fake = self.D(G_)
                     G_loss = -torch.mean(D_fake)
-                    self.D_optimizer.zero_grad()
-                    self.G_optimizer.zero_grad()
+
                     self.train_hist['G_loss'].append(G_loss.item())
 
                     G_loss.backward()
                     self.G_optimizer.step()
-                    g_exp_lr_scheduler.step()
+                    # g_exp_lr_scheduler.step()
 
                     self.train_hist['D_loss'].append(D_loss.item())
 
@@ -283,7 +278,6 @@ class WGAN_GP_v2(object):
         'choose right noise data and generate the samples'
         """ fixed noise """
         samples = self.G(sample_z)
-        samples = de_tanh(samples)
 
         # （b, c, h, w)->(b, h, w, c)
         if self.gpu_mode:
@@ -294,8 +288,5 @@ class WGAN_GP_v2(object):
         res = []
         for item in samples:
             data = item
-            # data = de_tanh(data)
-            # -------------------------------------------------------
-            # item = de_irpv2(data, init_value)
             res.append(item)
         np.save(self.model_name + 'samples.npy', res)

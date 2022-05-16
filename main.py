@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument('--lrG', type=float, default=0.0002)
     parser.add_argument('--lrD', type=float, default=0.0002)
     parser.add_argument('--beta1', type=float, default=0.5)
-    parser.add_argument('--beta2', type=float, default=0.9)
+    parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--gpu_mode', type=str2bool, default=True)
     parser.add_argument('--benchmark_mode', type=str2bool, default=True)
     parser.add_argument('--sample_dir', type=str, default='./data/sample/')
