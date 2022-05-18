@@ -36,19 +36,7 @@ class TSDataset(Dataset):
                 value = df.Value
                 arr = np.asarray([value[time_window * i:time_window * i + time_window] for i in range(n // time_window)]
                                  , dtype=np.float32)
-        # # minmax归一化，将所有数据映射至(0,1)区间，加上一个极小值避免0值无法运算问题
-        # # data = self.normalize(arr) if normalize else arr
-        # length = arr.shape[0]
-        # self.data = torch.empty(length, 1, time_window, time_window)
-        # # 计算IRP值，该值域为(-∞，+∞)，记录准确值域
-        # for i in range(length):
-        #     matrix = torch.from_numpy(intertemporal_recurrence_matrix(arr[i]))
-        #     self.data[i] = matrix.view((1, time_window, time_window))
-        # self.min = self.data.min()
-        # self.max = self.data.max()
-        # # 再一次线性映射，将值域限制在(-1,1)内
-        #————————————————————————————————
-        # data = self.normalize(arr) if normalize else arr
+
         length = arr.shape[0]
         self.data = torch.empty(length, 1, time_window, time_window)
         for i in range(length):
@@ -56,9 +44,9 @@ class TSDataset(Dataset):
             # matrix = self.normalize(matrix)
             self.data[i] = matrix.view(1, time_window, time_window)
         self.data = self.data[:50]
-
-        # do a tanh as normalization
-        # self.data = torch.tanh(self.data)
+        self.a = (self.data.max() + self.data.min()) / 2
+        self.c = (self.data.max() - self.data.min()) / 2
+        self.data = self.normalize(self.data)
 
     def __len__(self):
         return len(self.data)
@@ -67,16 +55,10 @@ class TSDataset(Dataset):
         return self.data[idx]
 
     def normalize(self, x):
-        """Normalize input in [0,1] range, saving statics for denormalization"""
-        self.max = x.max()
-        self.min = x.min()
-        return (x - self.min) / (self.max - self.min) + 1e-7
+        """Normalize input in [-1,1] range, saving statics for denormalization"""
 
-    def denormalize(self, x):
-        """Revert [0,1] normalization"""
-        if not hasattr(self, 'max') or not hasattr(self, 'min'):
-            raise Exception("You are calling denormalize, but the input was not normalized")
-        return 0.5 * (x * self.max - x * self.min + self.max + self.min)
+        data = (x - self.a) / self.c
+        return data
 
 
 def get_data_loader(path, value_col, time_window, batch_size, normalize=True, shuffle=True):

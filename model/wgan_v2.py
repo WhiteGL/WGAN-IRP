@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.autograd import grad
 from utils.data_loader import get_data_loader
 from utils import utils_v2 as utils
+from utils.recurrence import de_norm
 
 
 class generator(nn.Module):
@@ -94,7 +95,7 @@ class WGAN_GP_v2(object):
 
         # load dataset
         self.data_loader = get_data_loader(self.data_dir, self.col_name, self.input_size, self.batch_size)
-        # self.max_value, self.min_value = self.data_loader.dataset.max, self.data_loader.dataset.min
+        self.a, self.c = self.data_loader.dataset.a, self.data_loader.dataset.c
         data = self.data_loader.__iter__().__next__()[0]
 
         # networks init
@@ -201,8 +202,6 @@ class WGAN_GP_v2(object):
                           ((epoch + 1), (iter + 1), self.data_loader.dataset.__len__() // self.batch_size, D_loss.item()
                            , G_loss.item()))
 
-
-
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
             if (epoch+1) % 50 == 0:
                 with torch.no_grad():
@@ -277,7 +276,9 @@ class WGAN_GP_v2(object):
         sample_z = torch.rand((tot_num_samples, self.z_dim)).cuda()
         'choose right noise data and generate the samples'
         """ fixed noise """
+        # generate samples and de_normalization
         samples = self.G(sample_z)
+        samples = de_norm(self.a, self.c, samples)
 
         # （b, c, h, w)->(b, h, w, c)
         if self.gpu_mode:
@@ -287,6 +288,5 @@ class WGAN_GP_v2(object):
         samples = samples[:, :, :, 0]
         res = []
         for item in samples:
-            data = item
             res.append(item)
         np.save(self.model_name + 'samples.npy', res)

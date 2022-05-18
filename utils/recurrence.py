@@ -8,6 +8,10 @@ def intertemporal_recurrence_matrix(data):
     inter_recurrence_matrix = np.zeros((N, N))
     for i in range(N):
         for j in range(N):
+            if data[i] == 0:
+                data[i] += 1e-5
+            if data[j] == 0:
+                data[j] += 1e-5
             inter_recurrence_matrix[i, j] = np.log(data[i] / data[j])
     return inter_recurrence_matrix
 
@@ -67,11 +71,16 @@ def de_irp(data, init_value):
     return res
 
 
-def de_norm(min_value, max_value, x):
-    res = np.zeros((x.shape[0]))
-    min_hat, max_hat = min(x), max(x)
-    for i in range(x.shape[0]):
-        res[i] = min_value + (max_value - min_value) / (max_hat - min_hat) * (x[i] - min_hat)
+def de_norm(a, c, x):
+    """
+    逆标准化，将数据从[-1,1]还原回原有值域
+    :param a: 标准化系数a
+    :param c: 标准化系数c
+    :param x: 数据
+    :return:
+    """
+    res = c * x + a
+
     return res
 
 
